@@ -1,7 +1,8 @@
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, ContextTypes
 from flask import Flask
 import threading
+import asyncio
 
 app = Flask(__name__)
 
@@ -34,7 +35,7 @@ USER_IDS = [
 # أيدي المطور (أنت)
 DEVELOPER_ID = 7635779264
 
-def check_permissions(update: Update, context: CallbackContext):
+async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id == DEVELOPER_ID:
         return True
@@ -44,15 +45,14 @@ def check_permissions(update: Update, context: CallbackContext):
     
     try:
         chat_id = update.message.chat_id
-        bot = context.bot
-        admins = bot.get_chat_administrators(chat_id)
+        admins = await context.bot.get_chat_administrators(chat_id)
         admin_ids = [admin.user.id for admin in admins]
         return user_id in admin_ids
     except:
         return False
 
-def start(update: Update, context: CallbackContext):
-    if not check_permissions(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_permissions(update, context):
         return
     
     user = update.message.from_user
@@ -72,10 +72,10 @@ def start(update: Update, context: CallbackContext):
 
 💡 **لعمل تاق:** أرسل /tagall"""
     
-    update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
+    await update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
 
-def tag_all(update: Update, context: CallbackContext):
-    if not check_permissions(update, context):
+async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_permissions(update, context):
         return
     
     try:
@@ -84,22 +84,17 @@ def tag_all(update: Update, context: CallbackContext):
             mention_texts.append(f"<a href='tg://user?id={user_id}'>⁠</a>")
         
         message = " ".join(mention_texts)
-        update.message.reply_text(message, parse_mode='HTML')
+        await update.message.reply_text(message, parse_mode='HTML')
     except Exception as e:
         print(f"Error: {e}")
 
-def main():
-    # تشغيل Flask في thread منفصل
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    
-    # تشغيل البوت
-    updater = Updater(BOT_TOKEN, use_context=True)
+def run_bot():
+    """تشغيل البوت في thread منفصل"""
+    application = Application.builder().token(BOT_TOKEN).build()
     
     # إضافة handlers
-    updater.dispatcher.add_handler(CommandHandler("start", start))
-    updater.dispatcher.add_handler(CommandHandler("tagall", tag_all))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("tagall", tag_all))
     
     print("🤖 بوت التاق الجماعي يعمل...")
     print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
@@ -108,8 +103,26 @@ def main():
     print("⚡ جاهز على Render...")
     
     # بدء البوت
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
+
+def main():
+    # تشغيل Flask في thread منفصل
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # تشغيل البوت في thread منفصل
+    bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
+    
+    # إبقاء البرنامج يعمل
+    try:
+        while True:
+            time.sleep(10)
+    except KeyboardInterrupt:
+        print("إيقاف البوت...")
 
 if __name__ == "__main__":
+    import time
     main()

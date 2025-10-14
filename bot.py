@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # إعدادات البوت
-BOT_TOKEN = "7383216151:AAH4zKoZAuD5jgXu87O5k-CzU19NyAQdS7o"
+BOT_TOKEN = "7383216151:AAEaD8BsdXhCyf-Ek7kYCcml9p-88xFvQMY"
 
 # قائمة الأيديانات الكاملة
 USER_IDS = [

@@ -1,17 +1,12 @@
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-from flask import Flask
-import threading
-import asyncio
+from telegram.ext import Updater, CommandHandler, CallbackContext
+import logging
 
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=10000)
+# تفعيل اللوغ لرؤية الأخطاء
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
 # إعدادات البوت
 BOT_TOKEN = "7383216151:AAGTRnZNR1ZweoG7PNtT1VzgWxYNzL29D5w"
@@ -35,24 +30,32 @@ USER_IDS = [
 # أيدي المطور (أنت)
 DEVELOPER_ID = 7635779264
 
-async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def check_permissions(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if user_id == DEVELOPER_ID:
         return True
     
     if update.message.chat.type not in ["group", "supergroup"]:
+        update.message.reply_text("❌ هذا البوت للمجموعات فقط!")
         return False
     
     try:
         chat_id = update.message.chat_id
-        admins = await context.bot.get_chat_administrators(chat_id)
+        bot = context.bot
+        admins = bot.get_chat_administrators(chat_id)
         admin_ids = [admin.user.id for admin in admins]
-        return user_id in admin_ids
-    except:
+        
+        if user_id in admin_ids:
+            return True
+        else:
+            update.message.reply_text("❌ يجب أن تكون مشرف في المجموعة!")
+            return False
+    except Exception as e:
+        update.message.reply_text("❌ حدث خطأ في التحقق من الصلاحيات!")
         return False
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_permissions(update, context):
+def start(update: Update, context: CallbackContext):
+    if not check_permissions(update, context):
         return
     
     user = update.message.from_user
@@ -72,10 +75,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 💡 **لعمل تاق:** أرسل /tagall"""
     
-    await update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
+    update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
 
-async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_permissions(update, context):
+def tag_all(update: Update, context: CallbackContext):
+    if not check_permissions(update, context):
         return
     
     try:
@@ -84,45 +87,33 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mention_texts.append(f"<a href='tg://user?id={user_id}'>⁠</a>")
         
         message = " ".join(mention_texts)
-        await update.message.reply_text(message, parse_mode='HTML')
+        update.message.reply_text(message, parse_mode='HTML')
+        
     except Exception as e:
         print(f"Error: {e}")
 
-def run_bot():
-    """تشغيل البوت في thread منفصل"""
-    application = Application.builder().token(BOT_TOKEN).build()
+def main():
+    print("🚀 بدء تشغيل البوت...")
+    
+    # إنشاء البوت
+    updater = Updater(BOT_TOKEN, use_context=True)
     
     # إضافة handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("tagall", tag_all))
+    updater.dispatcher.add_handler(CommandHandler("start", start))
+    updater.dispatcher.add_handler(CommandHandler("tagall", tag_all))
     
     print("🤖 بوت التاق الجماعي يعمل...")
     print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
     print(f"👥 عدد الأعضاء المضافين: {len(USER_IDS)}")
     print("🎯 الأوامر المتاحة: /start, /tagall")
-    print("⚡ جاهز على Render...")
+    print("🔄 جاري التشغيل بالبولينغ...")
     
     # بدء البوت
-    application.run_polling()
-
-def main():
-    # تشغيل Flask في thread منفصل
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
+    updater.start_polling()
+    print("✅ البوت يعمل ويستقبل الأوامر...")
     
-    # تشغيل البوت في thread منفصل
-    bot_thread = threading.Thread(target=run_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
-    
-    # إبقاء البرنامج يعمل
-    try:
-        while True:
-            time.sleep(10)
-    except KeyboardInterrupt:
-        print("إيقاف البوت...")
+    # إبقاء البوت يعمل
+    updater.idle()
 
 if __name__ == "__main__":
-    import time
     main()

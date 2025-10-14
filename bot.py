@@ -1,5 +1,21 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from flask import Flask
+import threading
+
+# إعداد Flask لفتح port (للتشغيل على Web Service)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 بوت التاق الجماعي يعمل - @Mik_emm"
+
+@app.route('/health')
+def health():
+    return "✅ البوت يعمل بشكل صحيح"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=10000)
 
 # إعدادات البوت
 BOT_TOKEN = "7383216151:AAEaD8BsdXhCyf-Ek7kYCcml9p-88xFvQMY"
@@ -17,7 +33,7 @@ USER_IDS = [
     7804755639, 7743058014, 7443386013, 7304051315, 6519425672,
     6406749226, 6351063786, 6061503802, 6017365522, 5775010322,
     5629751714, 5335249266, 5046140529, 2037438285, 2002345779,
-    1995582641, 1960203863, 1816184446,7635779264, 1499667757
+    1995582641, 1960203863, 1816184446, 7635779264, 1499667757
 ]
 
 # أيدي المطور (أنت)
@@ -79,8 +95,8 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         pass
 
-def main():
-    # إنشاء البوت
+def run_bot():
+    """تشغيل البوت في thread منفصل"""
     application = Application.builder().token(BOT_TOKEN).build()
     
     # إضافة handlers
@@ -95,6 +111,15 @@ def main():
     
     # بدء البوت
     application.run_polling()
+
+def main():
+    # تشغيل Flask في thread منفصل
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # تشغيل البوت
+    run_bot()
 
 if __name__ == "__main__":
     main()

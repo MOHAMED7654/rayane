@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import os
 import asyncio
 import threading
@@ -99,30 +99,27 @@ def health():
 def webhook():
     # التحقق من الـ Secret Token
     if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != SECRET_TOKEN:
-        return 'Forbidden', 403
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
     
     try:
         # معالجة التحديث
-        update = Update.de_json(request.get_json(), application.bot)
-        application.update_queue.put(update)
-        return 'OK', 200
+        update_data = request.get_json()
+        update = Update.de_json(update_data, application.bot)
+        
+        # معالجة التحديث بشكل متزامن
+        asyncio.run(application.process_update(update))
+        
+        return jsonify({"status": "success"}), 200
+        
     except Exception as e:
-        print(f"Error in webhook: {e}")
-        return 'Error', 500
-
-async def process_updates():
-    """معالجة التحديثات من الطابور"""
-    try:
-        async with application:
-            await application.start()
-            await application.update_queue.get()
-    except Exception as e:
-        print(f"Error in process_updates: {e}")
+        print(f"❌ خطأ في webhook: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 async def setup_webhook():
     """تعيين Webhook"""
     try:
         await application.initialize()
+        await application.start()
         
         # تعيين Webhook
         await application.bot.set_webhook(
@@ -132,9 +129,7 @@ async def setup_webhook():
         )
         print("✅ تم تعيين Webhook بنجاح!")
         print(f"🌐 Webhook URL: {WEBHOOK_URL}")
-        
-        # بدء معالجة التحديثات
-        await process_updates()
+        print("🤖 البوت جاهز لاستقبال الرسائل!")
         
     except Exception as e:
         print(f"❌ خطأ في تعيين Webhook: {e}")
@@ -147,14 +142,13 @@ def start_bot():
         print(f"❌ خطأ في بدء البوت: {e}")
 
 if __name__ == "__main__":
-    # بدء البوت في thread منفصل
-    bot_thread = threading.Thread(target=start_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
+    # بدء البوت
+    print(f"🚀 بدء تشغيل البوت مع Webhook...")
+    print(f"📧 المطور: @Mik_emm")
+    
+    # تشغيل إعداد Webhook
+    start_bot()
     
     # تشغيل Flask
-    print(f"🚀 بدء تشغيل السيرفر على port {PORT}")
-    print(f"📧 المطور: @Mik_emm")
-    print("⏳ جاري تعيين Webhook...")
-    
+    print(f"🌐 تشغيل السيرفر على port {PORT}")
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)

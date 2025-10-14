@@ -83,12 +83,11 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # عمل تاق باستخدام mentions مرئية
+        # عرض جميع اليوزرات بشكل واضح في رسالة واحدة
         mention_texts = []
         for user_id in USER_IDS:
-            mention_texts.append(f"<a href='tg://user?id={user_id}'>•</a>")
+            mention_texts.append(f"<a href='tg://user?id={user_id}'>@{user_id}</a>")
         
-        # رسالة واحدة كاملة
         message = " ".join(mention_texts)
         await update.message.reply_text(message, parse_mode='HTML')
         

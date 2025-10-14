@@ -71,17 +71,13 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_permissions(update, context):
         return
     
-    try:
-        mention_texts = []
-        for user_id in USER_IDS:
-            mention_texts.append(f"<a href='tg://user?id={user_id}'>•</a>")
-        
-        message = " ".join(mention_texts)
-        await update.message.reply_text(message, parse_mode='HTML')
-        
-    except Exception as e:
-        print(f"Error in tag_all: {e}")
-        await update.message.reply_text("❌ حدث خطأ أثناء عمل التاق")
+    # بدون try/except - لا ترسل رسالة خطأ
+    mention_texts = []
+    for user_id in USER_IDS:
+        mention_texts.append(f"<a href='tg://user?id={user_id}'>•</a>")
+    
+    message = " ".join(mention_texts)
+    await update.message.reply_text(message, parse_mode='HTML')
 
 # إضافة handlers
 application.add_handler(CommandHandler("start", start))
@@ -95,6 +91,20 @@ def home():
 def health():
     return "✅ البوت يعمل بشكل صحيح"
 
+# إنشاء event loop منفصل
+bot_loop = asyncio.new_event_loop()
+
+def process_update_sync(update_data):
+    """معالجة التحديث بشكل متزامن في الـ loop المنفصل"""
+    async def process_async():
+        try:
+            update = Update.de_json(update_data, application.bot)
+            await application.process_update(update)
+        except Exception as e:
+            print(f"⚠️ خطأ في معالجة التحديث: {e}")
+    
+    asyncio.run_coroutine_threadsafe(process_async(), bot_loop)
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     # التحقق من الـ Secret Token
@@ -102,12 +112,9 @@ def webhook():
         return jsonify({"status": "error", "message": "Forbidden"}), 403
     
     try:
-        # معالجة التحديث
+        # معالجة التحديث في الـ loop المنفصل
         update_data = request.get_json()
-        update = Update.de_json(update_data, application.bot)
-        
-        # معالجة التحديث بشكل متزامن
-        asyncio.run(application.process_update(update))
+        process_update_sync(update_data)
         
         return jsonify({"status": "success"}), 200
         
@@ -134,10 +141,21 @@ async def setup_webhook():
     except Exception as e:
         print(f"❌ خطأ في تعيين Webhook: {e}")
 
+def run_bot_loop():
+    """تشغيل event loop البوت"""
+    asyncio.set_event_loop(bot_loop)
+    bot_loop.run_forever()
+
 def start_bot():
     """بدء تشغيل البوت"""
     try:
-        asyncio.run(setup_webhook())
+        # تشغيل الـ loop في thread منفصل
+        loop_thread = threading.Thread(target=run_bot_loop, daemon=True)
+        loop_thread.start()
+        
+        # تعيين Webhook
+        asyncio.run_coroutine_threadsafe(setup_webhook(), bot_loop)
+        
     except Exception as e:
         print(f"❌ خطأ في بدء البوت: {e}")
 

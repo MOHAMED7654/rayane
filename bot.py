@@ -34,10 +34,9 @@ async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # التحقق من أن الأمر في مجموعة
     if update.message.chat.type not in ["group", "supergroup"]:
-        await update.message.reply_text("❌ هذا البوت للمجموعات فقط!")
         return False
     
-    # التحقق من أن المستخدم مشرف باستخدام طريقة بديلة
+    # التحقق من أن المستخدم مشرف
     try:
         chat_id = update.message.chat_id
         admins = await context.bot.get_chat_administrators(chat_id)
@@ -46,85 +45,15 @@ async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id in admin_ids:
             return True
         else:
-            await update.message.reply_text("❌ يجب أن تكون مشرف في المجموعة لاستخدام هذا البوت!")
             return False
             
     except Exception as e:
-        await update.message.reply_text("❌ لا يمكن التحقق من الصلاحيات. تأكد من إضافة البوت للمجموعة!")
         return False
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التحقق من الصلاحيات
-    if not await check_permissions(update, context):
-        return
-    
-    user = update.message.from_user
-    is_developer = user.id == DEVELOPER_ID
-    
-    welcome_text = f"""
-🎊 **مرحباً {user.first_name}!**
-
-🤖 **البوت:** بوت التاق الجماعي
-⚡ **الوصف:** يقوم بعمل تاق لـ {len(USER_IDS)} عضو
- 
-
- 
-📧 **الحساب:** [@Mik_emm](https://t.me/Mik_emm)
-
-📋 **الأوامر المتاحة:**
-/tagall - عمل تاق لجميع الأعضاء
- 
-
-💡 **لعمل تاق:** أرسل /tagall
-    """
-    
-    await update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
 
 async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # التحقق من الصلاحيات
     if not await check_permissions(update, context):
         return
-    
-    await update.message.reply_text(f"🔄 جاري عمل تاق لـ {len(USER_IDS)} عضو...")
-    
-    try:
-        # عمل تاق باستخدام الـ mentions
-        mention_texts = []
-        
-        for user_id in USER_IDS:
-            mention_texts.append(f"<a href='tg://user?id={user_id}'>⁠</a>")
-        
-        # تقسيم إلى رسالتين فقط
-        half = len(mention_texts) // 2
-        first_half = mention_texts[:half]
-        second_half = mention_texts[half:]
-        
-        # الرسالة الأولى
-        message1 = "📢 **تاق جماعي (1/2):**\n\n"
-        message1 += " ".join(first_half)
-        message1 += f"\n\n👥 {half} عضو | 🛠 @Mik_emm"
-        
-        # الرسالة الثانية
-        message2 = "📢 **تاق جماعي (2/2):**\n\n"
-        message2 += " ".join(second_half)
-        message2 += f"\n\n👥 {len(second_half)} عضو | 🛠 @Mik_emm"
-        
-        # إرسال الرسائل
-        await update.message.reply_text(message1, parse_mode='HTML')
-        await update.message.reply_text(message2, parse_mode='HTML')
-        
-        await update.message.reply_text(f"✅ تم عمل تاق لـ {len(USER_IDS)} عضو بنجاح!")
-        
-    except Exception as e:
-        await update.message.reply_text(f"❌ حدث خطأ: {str(e)}")
-
-async def tag_all_one_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """تاق في رسالة واحدة فقط"""
-    # التحقق من الصلاحيات
-    if not await check_permissions(update, context):
-        return
-    
-    await update.message.reply_text(f"🔄 جاري عمل تاق لـ {len(USER_IDS)} عضو في رسالة واحدة...")
     
     try:
         # عمل تاق باستخدام الـ mentions في رسالة واحدة
@@ -134,51 +63,27 @@ async def tag_all_one_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             mention_texts.append(f"<a href='tg://user?id={user_id}'>⁠</a>")
         
         # رسالة واحدة كاملة
-        message = "📢 **تاق جماعي لجميع الأعضاء:**\n\n"
-        message += " ".join(mention_texts)
-        message += f"\n\n👥 {len(USER_IDS)} عضو | 🛠 @Mik_emm"
+        message = " ".join(mention_texts)
         
-        # إرسال الرسالة
+        # إرسال الرسالة فقط بدون أي نص إضافي
         await update.message.reply_text(message, parse_mode='HTML')
         
     except Exception as e:
-        # إذا كانت الرسالة طويلة جداً، نستخدم الطريقة المقسومة
-        await tag_all(update, context)
-
-async def show_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التحقق من الصلاحيات
-    if not await check_permissions(update, context):
-        return
-    
-    members_text = f"""
-📊 **إحصائيات الأعضاء المضافين:**
-
-👥 **عدد الأعضاء:** {len(USER_IDS)}
-🛠 **المطور:** [@Mik_emm](https://t.me/Mik_emm)
-
-💡 **الأوامر المتاحة:**
-/tagall - تاق في رسالتين
-/tagone - تاق في رسالة واحدة
-    """
-    await update.message.reply_text(members_text, parse_mode='Markdown')
+        # لا ترسل أي رسالة خطأ
+        pass
 
 def main():
     # إنشاء تطبيق البوت
     application = Application.builder().token(BOT_TOKEN).build()
     
-    # إضافة handlers
-    application.add_handler(CommandHandler("start", start))
+    # إضافة handlers - أمر واحد فقط
     application.add_handler(CommandHandler("tagall", tag_all))
-    application.add_handler(CommandHandler("tagone", tag_all_one_message))
-    application.add_handler(CommandHandler("members", show_members))
     
     # بدء البوت
     print("🤖 بوت التاق الجماعي يعمل...")
     print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
     print(f"👥 عدد الأعضاء المضافين: {len(USER_IDS)}")
-    print("🔒 البوت يعمل فقط للمشرفين والمطور")
-    print("🚫 البوت لا يحتاج إلى صلاحيات مشرف")
-    print("📨 التاق في رسالة أو رسالتين فقط")
+    print("🎯 الأمر المتاح: /tagall")
     print("⚡ جاهز على Render...")
     
     application.run_polling()

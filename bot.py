@@ -1,6 +1,5 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
 
 # إعدادات البوت
 BOT_TOKEN = "7383216151:AAGTRnZNR1ZweoG7PNtT1VzgWxYNzL29D5w"
@@ -18,7 +17,7 @@ USER_IDS = [
     7804755639, 7743058014, 7443386013, 7304051315, 6519425672,
     6406749226, 6351063786, 6061503802, 6017365522, 5775010322,
     5629751714, 5335249266, 5046140529, 2037438285, 2002345779,
-    1995582641, 1960203863, 1816184446, 1499667757
+    1995582641, 1960203863, 1816184446,7635779264, 1499667757
 ]
 
 # أيدي المطور (أنت)
@@ -30,21 +29,14 @@ async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return True
     
     if update.message.chat.type not in ["group", "supergroup"]:
-        await update.message.reply_text("❌ هذا البوت للمجموعات فقط!")
         return False
     
     try:
         chat_id = update.message.chat_id
         admins = await context.bot.get_chat_administrators(chat_id)
         admin_ids = [admin.user.id for admin in admins]
-        
-        if user_id in admin_ids:
-            return True
-        else:
-            await update.message.reply_text("❌ يجب أن تكون مشرف في المجموعة!")
-            return False
-    except Exception as e:
-        await update.message.reply_text("❌ حدث خطأ في التحقق من الصلاحيات!")
+        return user_id in admin_ids
+    except:
         return False
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -75,19 +67,19 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
+        # عمل تاق باستخدام mentions مرئية
         mention_texts = []
         for user_id in USER_IDS:
-            mention_texts.append(f"<a href='tg://user?id={user_id}'>⁠</a>")
+            mention_texts.append(f"<a href='tg://user?id={user_id}'>•</a>")
         
+        # رسالة واحدة كاملة
         message = " ".join(mention_texts)
         await update.message.reply_text(message, parse_mode='HTML')
         
     except Exception as e:
-        print(f"Error: {e}")
+        pass
 
 def main():
-    print("🚀 بدء تشغيل البوت...")
-    
     # إنشاء البوت
     application = Application.builder().token(BOT_TOKEN).build()
     
@@ -103,7 +95,6 @@ def main():
     
     # بدء البوت
     application.run_polling()
-    print("✅ البوت يعمل ويستقبل الأوامر...")
 
 if __name__ == "__main__":
     main()

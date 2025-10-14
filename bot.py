@@ -1,25 +1,15 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from flask import Flask
-import threading
-import time
-import asyncio
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "🤖 بوت التاق الجماعي يعمل - @Mik_emm"
-
-@app.route('/health')
-def health():
-    return "✅ البوت يعمل بشكل صحيح"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=10000)
+from flask import Flask, request
+import os
 
 # إعدادات البوت
 BOT_TOKEN = "7383216151:AAEaD8BsdXhCyf-Ek7kYCcml9p-88xFvQMY"
+SECRET_TOKEN = "my_secret_123"  # يمكنك تغييره
+WEBHOOK_URL = "https://rayanebbot.onrender.com/webhook"
+PORT = int(os.environ.get('PORT', 10000))
+
+app = Flask(__name__)
 
 # قائمة الأيديانات الكاملة
 USER_IDS = [
@@ -37,17 +27,17 @@ USER_IDS = [
     1995582641, 1960203863, 1816184446, 7635779264, 1499667757
 ]
 
-# أيدي المطور (أنت)
 DEVELOPER_ID = 7635779264
+
+# إنشاء تطبيق البوت
+application = Application.builder().token(BOT_TOKEN).build()
 
 async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id == DEVELOPER_ID:
         return True
-    
     if update.message.chat.type not in ["group", "supergroup"]:
         return False
-    
     try:
         chat_id = update.message.chat_id
         admins = await context.bot.get_chat_administrators(chat_id)
@@ -59,80 +49,78 @@ async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_permissions(update, context):
         return
-    
     user = update.message.from_user
-    is_developer = user.id == DEVELOPER_ID
-    
-    welcome_text = f"""🎊 **مرحباً {user.first_name}!**
-
-🤖 **البوت:** بوت التاق الجماعي
-⚡ **الوصف:** يقوم بعمل تاق لـ {len(USER_IDS)} عضو
-
-{'👑 **أنت المطور**' if is_developer else '👨‍💼 **أنت مشرف**'}
-
-📧 **الحساب:** [@Mik_emm](https://t.me/Mik_emm)
-
-📋 **الأوامر المتاحة:**
-/tagall - عمل تاق لجميع الأعضاء
-
-💡 **لعمل تاق:** أرسل /tagall"""
-    
-    await update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
+    welcome_text = f"🎊 مرحباً {user.first_name}!\n\n🤖 بوت التاق\n⚡ تاق لـ {len(USER_IDS)} عضو\n\n📧 @Mik_emm\n\n💡 أرسل /tagall"
+    await update.message.reply_text(welcome_text)
 
 async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_permissions(update, context):
         return
-    
     try:
-        # عمل تاق باستخدام mentions مرئية
         mention_texts = []
         for user_id in USER_IDS:
             mention_texts.append(f"<a href='tg://user?id={user_id}'>•</a>")
-        
-        # رسالة واحدة كاملة
         message = " ".join(mention_texts)
         await update.message.reply_text(message, parse_mode='HTML')
-        
-    except Exception as e:
+    except:
         pass
 
-def run_bot_with_retry():
-    """تشغيل البوت مع إعادة محاولة عند فشل الاتصال"""
-    max_retries = 5
-    retry_delay = 30  # ثانية
-    
-    for attempt in range(max_retries):
-        try:
-            print(f"🔄 محاولة تشغيل البوت ({attempt + 1}/{max_retries})...")
-            
-            application = Application.builder().token(BOT_TOKEN).build()
-            application.add_handler(CommandHandler("start", start))
-            application.add_handler(CommandHandler("tagall", tag_all))
-            
-            print("🤖 بوت التاق الجماعي يعمل...")
-            print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
-            print(f"👥 عدد الأعضاء المضافين: {len(USER_IDS)}")
-            print("🎯 الأوامر المتاحة: /start, /tagall")
-            
-            # بدء البوت مع تجاهل الرسائل القديمة
-            application.run_polling(drop_pending_updates=True)
-            
-        except Exception as e:
-            print(f"❌ فشل التشغيل: {e}")
-            if attempt < max_retries - 1:
-                print(f"⏳ إعادة المحاولة بعد {retry_delay} ثانية...")
-                time.sleep(retry_delay)
-            else:
-                print("🚫 فشل جميع محاولات التشغيل")
+# إضافة handlers
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("tagall", tag_all))
 
-def main():
-    # تشغيل Flask في thread منفصل
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
+@app.route('/')
+def home():
+    return "🤖 بوت التاق الجماعي يعمل مع Webhook - @Mik_emm"
+
+@app.route('/health')
+def health():
+    return "✅ البوت يعمل بشكل صحيح"
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    # التحقق من الـ Secret Token
+    if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != SECRET_TOKEN:
+        return 'Forbidden', 403
     
-    # تشغيل البوت مع إعادة المحاولة
-    run_bot_with_retry()
+    try:
+        # معالجة التحديث
+        update = Update.de_json(request.get_json(), application.bot)
+        application.update_queue.put(update)
+        return 'OK', 200
+    except Exception as e:
+        print(f"Error in webhook: {e}")
+        return 'Error', 500
+
+async def setup_webhook():
+    """تعيين Webhook"""
+    try:
+        await application.initialize()
+        await application.start()
+        
+        await application.bot.set_webhook(
+            url=WEBHOOK_URL,
+            secret_token=SECRET_TOKEN,
+            drop_pending_updates=True
+        )
+        print("✅ تم تعيين Webhook بنجاح!")
+        print(f"🌐 Webhook URL: {WEBHOOK_URL}")
+    except Exception as e:
+        print(f"❌ خطأ في تعيين Webhook: {e}")
+
+def start_bot():
+    """بدء تشغيل البوت"""
+    import asyncio
+    asyncio.run(setup_webhook())
 
 if __name__ == "__main__":
-    main()
+    # بدء البوت في الخلفية
+    import threading
+    bot_thread = threading.Thread(target=start_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
+    
+    # تشغيل Flask
+    print(f"🚀 بدء تشغيل السيرفر على port {PORT}")
+    print(f"📧 المطور: @Mik_emm")
+    app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)

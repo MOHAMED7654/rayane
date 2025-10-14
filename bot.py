@@ -2,10 +2,12 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from flask import Flask, request
 import os
+import asyncio
+import threading
 
 # إعدادات البوت
 BOT_TOKEN = "7383216151:AAEaD8BsdXhCyf-Ek7kYCcml9p-88xFvQMY"
-SECRET_TOKEN = "my_secret_123"  # يمكنك تغييره
+SECRET_TOKEN = "my_secret_123"
 WEBHOOK_URL = "https://rayanebbot.onrender.com/webhook"
 PORT = int(os.environ.get('PORT', 10000))
 
@@ -49,21 +51,37 @@ async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_permissions(update, context):
         return
+    
     user = update.message.from_user
-    welcome_text = f"🎊 مرحباً {user.first_name}!\n\n🤖 بوت التاق\n⚡ تاق لـ {len(USER_IDS)} عضو\n\n📧 @Mik_emm\n\n💡 أرسل /tagall"
-    await update.message.reply_text(welcome_text)
+    welcome_text = f"""🎊 مرحباً {user.first_name}!
+
+🤖 البوت: بوت التاق الجماعي
+⚡ الوصف: يقوم بعمل تاق لـ {len(USER_IDS)} عضو
+
+📧 الحساب: @Mik_emm (https://t.me/Mik_emm)
+
+📋 الأوامر المتاحة:
+/tagall - عمل تاق لجميع الأعضاء
+
+💡 لعمل تاق: أرسل /tagall"""
+    
+    await update.message.reply_text(welcome_text, disable_web_page_preview=True)
 
 async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_permissions(update, context):
         return
+    
     try:
         mention_texts = []
         for user_id in USER_IDS:
             mention_texts.append(f"<a href='tg://user?id={user_id}'>•</a>")
+        
         message = " ".join(mention_texts)
         await update.message.reply_text(message, parse_mode='HTML')
-    except:
-        pass
+        
+    except Exception as e:
+        print(f"Error in tag_all: {e}")
+        await update.message.reply_text("❌ حدث خطأ أثناء عمل التاق")
 
 # إضافة handlers
 application.add_handler(CommandHandler("start", start))
@@ -92,12 +110,21 @@ def webhook():
         print(f"Error in webhook: {e}")
         return 'Error', 500
 
+async def process_updates():
+    """معالجة التحديثات من الطابور"""
+    try:
+        async with application:
+            await application.start()
+            await application.update_queue.get()
+    except Exception as e:
+        print(f"Error in process_updates: {e}")
+
 async def setup_webhook():
     """تعيين Webhook"""
     try:
         await application.initialize()
-        await application.start()
         
+        # تعيين Webhook
         await application.bot.set_webhook(
             url=WEBHOOK_URL,
             secret_token=SECRET_TOKEN,
@@ -105,17 +132,22 @@ async def setup_webhook():
         )
         print("✅ تم تعيين Webhook بنجاح!")
         print(f"🌐 Webhook URL: {WEBHOOK_URL}")
+        
+        # بدء معالجة التحديثات
+        await process_updates()
+        
     except Exception as e:
         print(f"❌ خطأ في تعيين Webhook: {e}")
 
 def start_bot():
     """بدء تشغيل البوت"""
-    import asyncio
-    asyncio.run(setup_webhook())
+    try:
+        asyncio.run(setup_webhook())
+    except Exception as e:
+        print(f"❌ خطأ في بدء البوت: {e}")
 
 if __name__ == "__main__":
-    # بدء البوت في الخلفية
-    import threading
+    # بدء البوت في thread منفصل
     bot_thread = threading.Thread(target=start_bot)
     bot_thread.daemon = True
     bot_thread.start()
@@ -123,4 +155,6 @@ if __name__ == "__main__":
     # تشغيل Flask
     print(f"🚀 بدء تشغيل السيرفر على port {PORT}")
     print(f"📧 المطور: @Mik_emm")
+    print("⏳ جاري تعيين Webhook...")
+    
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)

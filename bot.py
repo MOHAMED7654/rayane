@@ -2,8 +2,9 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from flask import Flask
 import threading
+import time
+import asyncio
 
-# إعداد Flask لفتح port (للتشغيل على Web Service)
 app = Flask(__name__)
 
 @app.route('/')
@@ -95,22 +96,34 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         pass
 
-def run_bot():
-    """تشغيل البوت في thread منفصل"""
-    application = Application.builder().token(BOT_TOKEN).build()
+def run_bot_with_retry():
+    """تشغيل البوت مع إعادة محاولة عند فشل الاتصال"""
+    max_retries = 5
+    retry_delay = 30  # ثانية
     
-    # إضافة handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("tagall", tag_all))
-    
-    print("🤖 بوت التاق الجماعي يعمل...")
-    print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
-    print(f"👥 عدد الأعضاء المضافين: {len(USER_IDS)}")
-    print("🎯 الأوامر المتاحة: /start, /tagall")
-    print("🔄 جاري التشغيل بالبولينغ...")
-    
-    # بدء البوت
-    application.run_polling()
+    for attempt in range(max_retries):
+        try:
+            print(f"🔄 محاولة تشغيل البوت ({attempt + 1}/{max_retries})...")
+            
+            application = Application.builder().token(BOT_TOKEN).build()
+            application.add_handler(CommandHandler("start", start))
+            application.add_handler(CommandHandler("tagall", tag_all))
+            
+            print("🤖 بوت التاق الجماعي يعمل...")
+            print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
+            print(f"👥 عدد الأعضاء المضافين: {len(USER_IDS)}")
+            print("🎯 الأوامر المتاحة: /start, /tagall")
+            
+            # بدء البوت مع تجاهل الرسائل القديمة
+            application.run_polling(drop_pending_updates=True)
+            
+        except Exception as e:
+            print(f"❌ فشل التشغيل: {e}")
+            if attempt < max_retries - 1:
+                print(f"⏳ إعادة المحاولة بعد {retry_delay} ثانية...")
+                time.sleep(retry_delay)
+            else:
+                print("🚫 فشل جميع محاولات التشغيل")
 
 def main():
     # تشغيل Flask في thread منفصل
@@ -118,8 +131,8 @@ def main():
     flask_thread.daemon = True
     flask_thread.start()
     
-    # تشغيل البوت
-    run_bot()
+    # تشغيل البوت مع إعادة المحاولة
+    run_bot_with_retry()
 
 if __name__ == "__main__":
     main()

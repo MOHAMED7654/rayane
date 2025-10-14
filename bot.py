@@ -1,6 +1,16 @@
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
+from telegram.ext import Updater, CommandHandler, CallbackContext
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=10000)
 
 # إعدادات البوت
 BOT_TOKEN = "7383216151:AAGTRnZNR1ZweoG7PNtT1VzgWxYNzL29D5w"
@@ -24,69 +34,82 @@ USER_IDS = [
 # أيدي المطور (أنت)
 DEVELOPER_ID = 7635779264
 
-async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """التحقق من أن المستخدم هو المطور أو مشرف في المجموعة"""
+def check_permissions(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
-    
-    # إذا كان المستخدم هو المطور، اسمح له دائماً
     if user_id == DEVELOPER_ID:
         return True
     
-    # التحقق من أن الأمر في مجموعة
     if update.message.chat.type not in ["group", "supergroup"]:
         return False
     
-    # التحقق من أن المستخدم مشرف
     try:
         chat_id = update.message.chat_id
-        admins = await context.bot.get_chat_administrators(chat_id)
+        bot = context.bot
+        admins = bot.get_chat_administrators(chat_id)
         admin_ids = [admin.user.id for admin in admins]
-        
-        if user_id in admin_ids:
-            return True
-        else:
-            return False
-            
-    except Exception as e:
+        return user_id in admin_ids
+    except:
         return False
 
-async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التحقق من الصلاحيات
-    if not await check_permissions(update, context):
+def start(update: Update, context: CallbackContext):
+    if not check_permissions(update, context):
+        return
+    
+    user = update.message.from_user
+    is_developer = user.id == DEVELOPER_ID
+    
+    welcome_text = f"""🎊 **مرحباً {user.first_name}!**
+
+🤖 **البوت:** بوت التاق الجماعي
+⚡ **الوصف:** يقوم بعمل تاق لـ {len(USER_IDS)} عضو
+
+{'👑 **أنت المطور**' if is_developer else '👨‍💼 **أنت مشرف**'}
+
+📧 **الحساب:** [@Mik_emm](https://t.me/Mik_emm)
+
+📋 **الأوامر المتاحة:**
+/tagall - عمل تاق لجميع الأعضاء
+
+💡 **لعمل تاق:** أرسل /tagall"""
+    
+    update.message.reply_text(welcome_text, parse_mode='Markdown', disable_web_page_preview=True)
+
+def tag_all(update: Update, context: CallbackContext):
+    if not check_permissions(update, context):
         return
     
     try:
-        # عمل تاق باستخدام الـ mentions في رسالة واحدة
         mention_texts = []
-        
         for user_id in USER_IDS:
             mention_texts.append(f"<a href='tg://user?id={user_id}'>⁠</a>")
         
-        # رسالة واحدة كاملة
         message = " ".join(mention_texts)
-        
-        # إرسال الرسالة فقط بدون أي نص إضافي
-        await update.message.reply_text(message, parse_mode='HTML')
-        
+        update.message.reply_text(message, parse_mode='HTML')
     except Exception as e:
-        # لا ترسل أي رسالة خطأ
-        pass
+        print(f"Error: {e}")
 
 def main():
-    # إنشاء تطبيق البوت
-    application = Application.builder().token(BOT_TOKEN).build()
+    # تشغيل Flask في thread منفصل
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
     
-    # إضافة handlers - أمر واحد فقط
-    application.add_handler(CommandHandler("tagall", tag_all))
+    # تشغيل البوت
+    updater = Updater(BOT_TOKEN, use_context=True)
     
-    # بدء البوت
+    # إضافة handlers
+    updater.dispatcher.add_handler(CommandHandler("start", start))
+    updater.dispatcher.add_handler(CommandHandler("tagall", tag_all))
+    
     print("🤖 بوت التاق الجماعي يعمل...")
     print(f"👑 المطور: {DEVELOPER_ID} (@Mik_emm)")
     print(f"👥 عدد الأعضاء المضافين: {len(USER_IDS)}")
-    print("🎯 الأمر المتاح: /tagall")
+    print("🎯 الأوامر المتاحة: /start, /tagall")
     print("⚡ جاهز على Render...")
     
-    application.run_polling()
+    # بدء البوت
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
     main()

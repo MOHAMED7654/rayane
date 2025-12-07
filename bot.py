@@ -22,10 +22,11 @@ USER_IDS = [
     6964293134, 5688295689, 5982240406, 7119992441, 8375808263,
     5356507141, 6675672115, 7041826366, 6699219169, 6044649059,
     5999090994, 6696406725, 6171509723, 7222564726, 6785287067,
-    8363650266, 6022007749, 6571216307, 6578949341, 8148031366
+    8363650266, 6022007749, 6571216307, 6578949341, 8148031366,
+    8435281777
 ]
 
-# المسموح لهم باستخدام الأوامر
+# ⚠️ المسموح لهم – لم أغيّرهم
 ALLOWED_IDS = {
     7635779264,   # المطور
     8435281777,   # الشخص الأول
@@ -44,7 +45,7 @@ async def check_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in ALLOWED_IDS:
         return True
 
-    # السماح لمشرفي المجموعة فقط
+    # السماح للمشرفين في المجموعات
     if update.message.chat.type in ["group", "supergroup"]:
         try:
             chat_id = update.message.chat_id
@@ -64,7 +65,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = f"""🎊 مرحباً {user.first_name}!
 
 🤖 البوت: بوت التاق الجماعي
-⚡ يقوم بعمل تاق لـ {len(USER_IDS)} عضو
+⚡ يقوم بعمل تاق لـ  
 
 📧 الحساب: @Mik_emm
 
@@ -72,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /tagall - عمل تاق لجميع الأعضاء
 
 💡 لعمل تاق: أرسل /tagall"""
-    
+
     await update.message.reply_text(welcome_text, disable_web_page_preview=True)
 
 async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,6 +83,7 @@ async def tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mention_texts = [f"<a href='tg://user?id={uid}'>•</a>" for uid in USER_IDS]
     message = " ".join(mention_texts)
     await update.message.reply_text(message, parse_mode='HTML')
+
 
 # إضافة handlers
 application.add_handler(CommandHandler("start", start))
@@ -172,4 +174,3 @@ if __name__ == "__main__":
 
     print(f"🌐 تشغيل السيرفر على port {PORT}")
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
-

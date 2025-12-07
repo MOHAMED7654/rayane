@@ -8,7 +8,7 @@ import requests
 import time
 
 # إعدادات البوت
-BOT_TOKEN = "7383216151:AAEaD8BsdXhCyf-Ek7kYCcml9p-88xFvQMY"
+BOT_TOKEN = "8519815975:AAHXPYn4psfjs27XwjR6VF9kSLdjucTjwI8"
 SECRET_TOKEN = "my_secret_123"
 WEBHOOK_URL = "https://rayanebbot.onrender.com/webhook"
 PORT = int(os.environ.get('PORT', 10000))
